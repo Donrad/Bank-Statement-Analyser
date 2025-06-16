@@ -14,6 +14,22 @@ interface Transaction {
   amount: number;
 }
 
+interface RawTransaction {
+  date: string;
+  description: string;
+  moneyIn: number | null;
+  moneyOut: number | null;
+}
+
+interface LLMStatementResponse {
+  name: string | null;
+  address: string | null;
+  date: string | null;
+  startingBalance: number | null;
+  endingBalance: number | null;
+  transactions: RawTransaction[];
+}
+
 interface StatementDetails {
   name: string | null;
   address: string | null;
@@ -27,36 +43,36 @@ interface StatementDetails {
 
 async function extractStatementDetails(text: string): Promise<StatementDetails> {
   const prompt = `
-You are an expert financial assistant. From the following bank statement text, extract the account holder name, address, statement date, starting balance, ending balance, and all transactions.
+    You are an expert financial assistant. From the following bank statement text, extract the account holder name, address, statement date, starting balance, ending balance, and all transactions.
 
-Respond in **strict** JSON with this structure:
+    Respond in **strict** JSON with this structure:
 
-{
-  "name": "string or null",
-  "address": "string or null",
-  "date": "string or null",
-  "startingBalance": number or null,
-  "endingBalance": number or null,
-  "transactions": [
     {
-      "date": "DD-MM-YYYY or similar",
-      "description": "string",
-      "moneyIn": number or null,
-      "moneyOut": number or null
+      "name": "string or null",
+      "address": "string or null",
+      "date": "string or null",
+      "startingBalance": number or null,
+      "endingBalance": number or null,
+      "transactions": [
+        {
+          "date": "DD-MM-YYYY or similar",
+          "description": "string",
+          "moneyIn": number or null,
+          "moneyOut": number or null
+        }
+      ]
     }
-  ]
-}
 
-Rules:
-- Put credit amounts (money in) in 'moneyIn', and set 'moneyOut' to null or 0.
-- Put debit amounts (money out) in 'moneyOut', and set 'moneyIn' to null or 0.
-- Skip empty or ambiguous transactions.
-- No additional text before or after the JSON.
+    Rules:
+    - Put credit amounts (money in) in 'moneyIn', and set 'moneyOut' to null or 0.
+    - Put debit amounts (money out) in 'moneyOut', and set 'moneyIn' to null or 0.
+    - Skip empty or ambiguous transactions.
+    - No additional text before or after the JSON.
 
---- BANK STATEMENT TEXT ---
-${text.slice(0, 8000)}
----------------------------
-`;
+    --- BANK STATEMENT TEXT ---
+    ${text.slice(0, 8000)}
+    ---------------------------
+  `;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -68,16 +84,13 @@ ${text.slice(0, 8000)}
     const content = completion.choices[0].message.content;
     if (!content) throw new Error("Empty LLM response");
 
-    const parsed = JSON.parse(content);
+    const parsed: LLMStatementResponse = JSON.parse(content);
 
     const { name, address, date, startingBalance, endingBalance, transactions: rawTransactions } = parsed;
 
     const transactions: Transaction[] = Array.isArray(rawTransactions)
-      ? rawTransactions.flatMap((tx: any): Transaction[] => {
-          if (
-            typeof tx.date !== "string" ||
-            typeof tx.description !== "string"
-          ) return [];
+      ? rawTransactions.flatMap((tx): Transaction[] => {
+          if (typeof tx.date !== "string" || typeof tx.description !== "string") return [];
 
           const moneyIn = typeof tx.moneyIn === "number" ? tx.moneyIn : 0;
           const moneyOut = typeof tx.moneyOut === "number" ? tx.moneyOut : 0;
@@ -93,22 +106,18 @@ ${text.slice(0, 8000)}
         })
       : [];
 
-    // Optional reconciliation check
     let reconciles: boolean | null = null;
-    if (
-      typeof startingBalance === "number" &&
-      typeof endingBalance === "number"
-    ) {
+    if (typeof startingBalance === "number" && typeof endingBalance === "number") {
       const sumTx = transactions.reduce((acc, t) => acc + t.amount, 0);
       reconciles = parseFloat((startingBalance + sumTx).toFixed(2)) === parseFloat(endingBalance.toFixed(2));
     }
 
     return {
-      name: name ?? null,
-      address: address ?? null,
-      date: date ?? null,
-      startingBalance: typeof startingBalance === "number" ? startingBalance : null,
-      endingBalance: typeof endingBalance === "number" ? endingBalance : null,
+      name,
+      address,
+      date,
+      startingBalance,
+      endingBalance,
       transactions,
       reconciles,
     };
@@ -132,7 +141,7 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get("file");
 
-    if (!file || typeof file === "string") {
+    if (!(file instanceof Blob)) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
@@ -145,10 +154,10 @@ export async function POST(req: Request) {
     }
 
     const details = await extractStatementDetails(text);
-
     return NextResponse.json(details);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err.message : "Unexpected error";
     console.error("PDF Processing Error:", err);
-    return NextResponse.json({ error: err.message || "Unexpected error" }, { status: 500 });
+    return NextResponse.json({ error }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { BadgeAlert, BadgeCheck, CalendarIcon, ChevronLeft, ChevronRight, HouseIcon, PersonStandingIcon, ShieldX, UserIcon, Wallet } from "lucide-react";
+import { BadgeAlert, BadgeCheck, CalendarIcon, ChevronLeft, ChevronRight, HouseIcon, ShieldX, UserIcon, Wallet } from "lucide-react";
 import React from "react";
 import { Button } from "./ui/button";
 
