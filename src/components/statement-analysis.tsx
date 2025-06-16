@@ -1,5 +1,5 @@
 import { BadgeAlert, BadgeCheck, CalendarIcon, ChevronLeft, ChevronRight, HouseIcon, ShieldX, UserIcon, Wallet } from "lucide-react";
-import React from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "./ui/button";
 
 export interface Transaction {
@@ -22,13 +22,12 @@ export interface StatementDetails {
 export function StatementAnalysis({ data }: { data: StatementDetails }) {
   const { name, address, date, startingBalance, endingBalance, transactions, reconciles } = data;
 
-  // --- Search & Pagination State ---
-  const [search, setSearch] = React.useState('');
-  const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(10);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
-  // --- Filtered and Paginated Transactions ---
-  const filteredTransactions = React.useMemo(() => {
+  // Filtered and Paginated Transactions
+  const filteredTransactions = useMemo(() => {
     const term = search.trim().toLowerCase();
     if (!term) return transactions;
     return transactions.filter(tx =>
@@ -39,21 +38,18 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
   }, [search, transactions]);
 
   const pageCount = Math.ceil(filteredTransactions.length / pageSize) || 1;
-  const paginatedTransactions = React.useMemo(
+  const paginatedTransactions = useMemo(
     () => filteredTransactions.slice((page - 1) * pageSize, page * pageSize),
     [filteredTransactions, page, pageSize]
   );
 
-  React.useEffect(() => { setPage(1); }, [search, pageSize]);
+  useEffect(() => { setPage(1); }, [search, pageSize]);
 
   return (
     <div className="relative mt-8 p-6 bg-zinc-100/80 rounded-lg border border-sky-500 ring-2 ring-sky-300/40 backdrop-blur-lg overflow-hidden group transition-all duration-300 hover:shadow-[0_4px_32px_0_rgba(56,189,248,0.25)]">
       <div className="pointer-events-none absolute inset-0 rounded-2xl border-2 border-sky-400/40 blur-xl opacity-60 group-hover:opacity-80 transition-all duration-300 z-0"></div>
-      {/* Statement summary cards */}
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-        {/* Left: Name + Date stacked */}
         <div className="flex flex-col gap-2">
-          {/* Name */}
           <div className="flex flex-col justify-center p-2 rounded-lg bg-white/80 border border-zinc-200 shadow-sm min-h-[40px]">
             <div className="flex items-center gap-1 mb-0.5">
               <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sky-100 text-sky-600">
@@ -63,7 +59,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
             </div>
             <div className="text-xs font-bold text-zinc-900 truncate">{name || 'N/A'}</div>
           </div>
-          {/* Date */}
+
           <div className="flex flex-col justify-center p-2 rounded-lg bg-white/80 border border-zinc-200 shadow-sm min-h-[40px]">
             <div className="flex items-center gap-1 mb-0.5">
               <span className="inline-flex items-center justify-center h-5 w-5 rounded bg-sky-100 text-sky-600">
@@ -92,7 +88,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
         </div>
       </div>
 
-      {/* Balances summary cards */}
+      {/* Balance Summary */}
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-tr from-sky-50/80 to-zinc-50/80 border border-sky-200 shadow-sm">
           <span className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-sky-200 text-sky-700">
@@ -113,6 +109,8 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
           </div>
         </div>
       </div>
+
+      {/* Reconciliation */}
       {reconciles !== null && (
         <div className={`relative z-10 flex items-center gap-2 p-2 rounded-lg shadow-sm border ${reconciles ? "bg-green-50/80 text-green-700 border-green-300" : "bg-red-50/80 text-red-700 border-red-300"} mt-2 mb-2`}>
           {reconciles ? (
@@ -128,12 +126,15 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
           )}
         </div>
       )}
+
       {reconciles === null && startingBalance !== null && endingBalance !== null && (
         <div className="relative z-10 flex items-center gap-2 p-2 rounded-lg shadow-sm border bg-yellow-50/80 text-yellow-700 border-yellow-300 mt-2 mb-2">
           <BadgeAlert className="h-5 w-5 text-yellow-600" />
           <span className="font-medium">Reconciliation could not be confirmed.</span>
         </div>
       )}
+
+      {/* Transactions */}
       <h3 className="relative z-10 text-lg font-bold text-zinc-900 mt-8 mb-3 pt-4 border-t border-zinc-200 tracking-tight">Transactions</h3>
       <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-2 mb-3">
         <input
@@ -151,6 +152,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
           {[5, 10, 15, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
         </select>
       </div>
+
       {filteredTransactions.length > 0 ? (
         <>
           <div className="relative z-10 overflow-x-auto rounded-xl shadow-inner border border-zinc-200/60 bg-white/80">
@@ -175,7 +177,8 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
               </tbody>
             </table>
           </div>
-          {/* Pagination Controls */}
+
+          {/* Pagination */}
           <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
             <span className="text-xs text-zinc-500">Page {page} of {pageCount}</span>
             <div className="flex gap-1">
