@@ -12,6 +12,7 @@ interface Transaction {
   date: string;
   desc: string;
   amount: number;
+  currency: string;
 }
 
 interface RawTransaction {
@@ -19,6 +20,7 @@ interface RawTransaction {
   description: string;
   moneyIn: number | null;
   moneyOut: number | null;
+  currency: string;
 }
 
 interface LLMStatementResponse {
@@ -28,6 +30,7 @@ interface LLMStatementResponse {
   startingBalance: number | null;
   endingBalance: number | null;
   transactions: RawTransaction[];
+  currency: string | null;
 }
 
 interface StatementDetails {
@@ -38,6 +41,7 @@ interface StatementDetails {
   endingBalance: number | null;
   transactions: Transaction[];
   reconciles: boolean | null;
+  currency?: string | null;
   error?: string;
 }
 
@@ -53,17 +57,20 @@ async function extractStatementDetails(text: string): Promise<StatementDetails> 
       "date": "string or null",
       "startingBalance": number or null,
       "endingBalance": number or null,
+      "currency": "string or null", // e.g. "$", "USD", "€", "GBP", etc. (statement-wide if present)
       "transactions": [
         {
           "date": "DD-MM-YYYY or similar",
           "description": "string",
           "moneyIn": number or null,
-          "moneyOut": number or null
+          "moneyOut": number or null,
+          "currency": "string" // e.g. "$", "USD", "€", "GBP", etc. (for each transaction)
         }
       ]
     }
 
     Rules:
+    - Preserve the original currency for each transaction and for the statement overall if available.
     - Put credit amounts (money in) in 'moneyIn', and set 'moneyOut' to null or 0.
     - Put debit amounts (money out) in 'moneyOut', and set 'moneyIn' to null or 0.
     - Skip empty or ambiguous transactions.
@@ -86,7 +93,7 @@ async function extractStatementDetails(text: string): Promise<StatementDetails> 
 
     const parsed: LLMStatementResponse = JSON.parse(content);
 
-    const { name, address, date, startingBalance, endingBalance, transactions: rawTransactions } = parsed;
+    const { name, address, date, startingBalance, endingBalance, transactions: rawTransactions, currency } = parsed;
 
     const transactions: Transaction[] = Array.isArray(rawTransactions)
       ? rawTransactions.flatMap((tx): Transaction[] => {
@@ -94,6 +101,7 @@ async function extractStatementDetails(text: string): Promise<StatementDetails> 
 
           const moneyIn = typeof tx.moneyIn === "number" ? tx.moneyIn : 0;
           const moneyOut = typeof tx.moneyOut === "number" ? tx.moneyOut : 0;
+          const txCurrency = typeof tx.currency === "string" ? tx.currency : (currency || "$" );
 
           if (moneyIn > 0 && moneyOut > 0) return []; // ambiguous
           if (moneyIn < 0 || moneyOut < 0) return []; // invalid
@@ -102,6 +110,7 @@ async function extractStatementDetails(text: string): Promise<StatementDetails> 
             date: tx.date.trim(),
             desc: tx.description.trim() || "No Description",
             amount: moneyIn > 0 ? moneyIn : -moneyOut,
+            currency: txCurrency,
           }];
         })
       : [];
@@ -120,6 +129,7 @@ async function extractStatementDetails(text: string): Promise<StatementDetails> 
       endingBalance,
       transactions,
       reconciles,
+      currency: currency || (transactions[0]?.currency ?? "$"),
     };
   } catch (error) {
     console.error("LLM Parsing Error:", error);

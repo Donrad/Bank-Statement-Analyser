@@ -6,6 +6,7 @@ export interface Transaction {
   date: string;
   desc: string;
   amount: number;
+  currency: string;
 }
 
 export interface StatementDetails {
@@ -16,10 +17,12 @@ export interface StatementDetails {
   endingBalance: number | null;
   transactions: Transaction[];
   reconciles: boolean | null;
+  currency?: string | null;
   error?: string;
 }
 
 export function StatementAnalysis({ data }: { data: StatementDetails }) {
+  const currencySymbol = data.currency || data.transactions[0]?.currency || "$";
   const { name, address, date, startingBalance, endingBalance, transactions, reconciles } = data;
 
   const [search, setSearch] = useState('');
@@ -96,7 +99,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
           </span>
           <div>
             <div className="text-xs text-zinc-500 font-medium">Starting Balance</div>
-            <div className="text-base font-bold text-zinc-900">{startingBalance !== null ? `$${startingBalance.toFixed(2)}` : 'N/A'}</div>
+            <div className="text-base font-bold text-zinc-900">{startingBalance !== null ? `${currencySymbol}${startingBalance.toFixed(2)}` : 'N/A'}</div>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-tr from-sky-50/80 to-zinc-50/80 border border-sky-200 shadow-sm">
@@ -105,7 +108,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
           </span>
           <div>
             <div className="text-xs text-zinc-500 font-medium">Ending Balance</div>
-            <div className="text-base font-bold text-zinc-900">{endingBalance !== null ? `$${endingBalance.toFixed(2)}` : 'N/A'}</div>
+            <div className="text-base font-bold text-zinc-900">{endingBalance !== null ? `${currencySymbol}${endingBalance.toFixed(2)}` : 'N/A'}</div>
           </div>
         </div>
       </div>
@@ -170,7 +173,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
                     <td className="px-4 py-2 whitespace-nowrap">{tx.date}</td>
                     <td className="px-4 py-2">{tx.desc}</td>
                     <td className={`px-4 py-2 text-right font-semibold ${tx.amount < 0 ? 'text-red-600' : 'text-green-600'}`}> 
-                      {tx.amount < 0 ? `-$${Math.abs(tx.amount).toFixed(2)}` : `$${tx.amount.toFixed(2)}`}
+                      {tx.amount < 0 ? `-${tx.currency}${Math.abs(tx.amount).toFixed(2)}` : `${tx.currency}${tx.amount.toFixed(2)}`}
                     </td>
                   </tr>
                 ))}
@@ -183,7 +186,7 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
             <span className="text-xs text-zinc-500">Page {page} of {pageCount}</span>
             <div className="flex gap-1">
               <Button
-                className="px-2 py-1 rounded-md border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50"
+                className="px-2 rounded-md border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
                 type="button"
@@ -193,13 +196,13 @@ export function StatementAnalysis({ data }: { data: StatementDetails }) {
               {Array.from({length: pageCount}, (_, i) => i + 1).slice(Math.max(0, page-3), Math.min(pageCount, page+2)).map(pn => (
                 <Button
                   key={pn}
-                  className={`px-2 py-1 rounded-md border text-xs font-semibold transition-all ${pn === page ? 'bg-sky-600 text-white border-sky-600' : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-sky-50 hover:text-sky-700'}`}
+                  className={`px-3 rounded-md border text-xs font-semibold transition-all ${pn === page ? 'bg-sky-600 text-white border-sky-600' : 'bg-zinc-50 text-zinc-700 border-zinc-200 hover:bg-sky-50 hover:text-sky-700'}`}
                   onClick={() => setPage(pn)}
                   type="button"
                 >{pn}</Button>
               ))}
               <Button
-                className="px-2 py-1 rounded-md border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50"
+                className="px-2 rounded-md border border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-sky-50 hover:text-sky-700 disabled:opacity-50"
                 onClick={() => setPage(p => Math.min(pageCount, p + 1))}
                 disabled={page === pageCount}
                 type="button"
